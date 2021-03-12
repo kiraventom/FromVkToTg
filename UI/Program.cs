@@ -34,69 +34,6 @@ namespace UI
 				var (login, password) = InputLoginPassword();
 				authorizedUser = Authorize(login, password);
 				TokenHandler.Set(Api.Token, true);
-				string login = string.Empty;
-				StringBuilder password = new(string.Empty);
-
-				while (string.IsNullOrWhiteSpace(login))
-				{
-					Console.WriteLine("Введите логин:");
-					login = Console.ReadLine();
-				}
-
-				while (string.IsNullOrWhiteSpace(password.ToString()))
-				{
-					Console.WriteLine("Введите пароль:");
-					while (true)
-					{
-						ConsoleKeyInfo i = Console.ReadKey(true);
-						if (i.Key == ConsoleKey.Enter)
-						{
-							Console.Write('\n');
-							break;
-						}
-						else if (i.Key == ConsoleKey.Backspace)
-						{
-							password = password.Remove(1, password.Length - 1);
-							Console.Write("\b \b");
-						}
-						else
-						{
-							password.Append(i.KeyChar);
-							Console.Write("*");
-						}
-					}
-					//password = Console.ReadLine();
-				}
-
-				try
-				{
-					var authParams = new ApiAuthParams()
-					{
-						ApplicationId = AppId,
-						Login = login,
-						Password = password.ToString(),
-						Settings = Settings.Groups | Settings.Offline,
-						TwoFactorAuthorization = static () =>
-						{
-							string code = string.Empty;
-
-							while (string.IsNullOrWhiteSpace(code) || code.Any(c => !char.IsDigit(c)))
-							{
-								Console.WriteLine("Введите код двухфакторной авторизации:");
-								code = Console.ReadLine();
-							}
-
-							return code;
-						}
-					};
-
-					Api.Authorize(authParams);
-					break;
-				}
-				catch (VkAuthorizationException e)
-				{
-					Console.WriteLine(e.Message);
-				}
 			}
 
 			var groupGetParams = new GroupsGetParams()
@@ -162,7 +99,7 @@ namespace UI
 		static (string, string) InputLoginPassword()
 		{
 			string login = string.Empty;
-			string password = string.Empty;
+			StringBuilder passwordSB = new(string.Empty);
 
 			while (string.IsNullOrWhiteSpace(login))
 			{
@@ -170,13 +107,31 @@ namespace UI
 				login = Console.ReadLine();
 			}
 
-			while (string.IsNullOrWhiteSpace(password))
+			while (string.IsNullOrWhiteSpace(passwordSB.ToString()))
 			{
 				Console.WriteLine("Введите пароль:");
-				password = Console.ReadLine();
+				while (true)
+				{
+					ConsoleKeyInfo i = Console.ReadKey(true);
+					if (i.Key == ConsoleKey.Enter)
+					{
+						Console.Write('\n');
+						break;
+					}
+					else if (i.Key == ConsoleKey.Backspace)
+					{
+						passwordSB = passwordSB.Remove(1, passwordSB.Length - 1);
+						Console.Write("\b \b");
+					}
+					else
+					{
+						passwordSB.Append(i.KeyChar);
+						Console.Write("*");
+					}
+				}
 			}
 
-			return (login, password);
+			return (login, passwordSB.ToString());
 		}
 
 		static string InputTwoFactorCode()
