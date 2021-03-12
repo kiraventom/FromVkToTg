@@ -34,7 +34,26 @@ namespace UI
 				while (string.IsNullOrWhiteSpace(password))
 				{
 					Console.WriteLine("Введите пароль:");
-					password = Console.ReadLine();
+					while (true)
+					{
+						ConsoleKeyInfo i = Console.ReadKey(true);
+						if (i.Key == ConsoleKey.Enter)
+						{
+							Console.Write('\n');
+							break;
+						}
+						else if (i.Key == ConsoleKey.Backspace)
+						{
+							password = password.Remove(password.Length - 1);
+							Console.Write("\b \b");
+						}
+						else
+						{
+							password += i.KeyChar;
+							Console.Write("*");
+						}
+					}
+					//password = Console.ReadLine();
 				}
 
 				try
