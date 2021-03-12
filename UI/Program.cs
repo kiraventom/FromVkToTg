@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Text;
 using VkNet;
 using VkNet.Enums.Filters;
 using VkNet.Exception;
@@ -23,7 +24,7 @@ namespace UI
 			while (true)
 			{
 				string login = string.Empty;
-				string password = string.Empty;
+				StringBuilder password = new(string.Empty);
 
 				while (string.IsNullOrWhiteSpace(login))
 				{
@@ -31,7 +32,7 @@ namespace UI
 					login = Console.ReadLine();
 				}
 
-				while (string.IsNullOrWhiteSpace(password))
+				while (string.IsNullOrWhiteSpace(password.ToString()))
 				{
 					Console.WriteLine("Введите пароль:");
 					while (true)
@@ -44,12 +45,12 @@ namespace UI
 						}
 						else if (i.Key == ConsoleKey.Backspace)
 						{
-							password = password.Remove(password.Length - 1);
+							password = password.Remove(1, password.Length - 1);
 							Console.Write("\b \b");
 						}
 						else
 						{
-							password += i.KeyChar;
+							password.Append(i.KeyChar);
 							Console.Write("*");
 						}
 					}
@@ -62,7 +63,7 @@ namespace UI
 					{
 						ApplicationId = AppId,
 						Login = login,
-						Password = password,
+						Password = password.ToString(),
 						Settings = Settings.Groups | Settings.Offline,
 						TwoFactorAuthorization = static () =>
 						{
