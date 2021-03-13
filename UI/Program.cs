@@ -14,7 +14,7 @@ namespace UI
 	class Program
 	{
 		static Program()
-		{
+		{			
 			Api = new VkApi();
 		}
 

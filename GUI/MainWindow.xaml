@@ -11,6 +11,7 @@
         <ResourceDictionary >
             <ResourceDictionary.MergedDictionaries >
                 <ResourceDictionary Source="Resources/StyleControllerTB.xaml"/>
+                <ResourceDictionary Source="Resources/StyleControllerPB.xaml"/>
                 <ResourceDictionary Source="Resources/StyleControllerB.xaml"/>
                 <ResourceDictionary Source="Resources/StyleControllerTBlock.xaml"/>
             </ResourceDictionary.MergedDictionaries>
