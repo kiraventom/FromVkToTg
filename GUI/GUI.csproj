@@ -6,4 +6,12 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Authorization\Authorization.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="VkNet" Version="1.60.0"/>
+  </ItemGroup>
+
 </Project>

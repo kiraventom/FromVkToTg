@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UI", "UI\UI.csproj", "{CC05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GUI", "GUI\GUI.csproj", "{878AE284-6EEB-4808-8907-39054198217D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Authorization", "Authorization\Authorization.csproj", "{226525BB-A586-4AC0-8ECA-07BBD759982C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{878AE284-6EEB-4808-8907-39054198217D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{878AE284-6EEB-4808-8907-39054198217D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{878AE284-6EEB-4808-8907-39054198217D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{226525BB-A586-4AC0-8ECA-07BBD759982C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{226525BB-A586-4AC0-8ECA-07BBD759982C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{226525BB-A586-4AC0-8ECA-07BBD759982C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{226525BB-A586-4AC0-8ECA-07BBD759982C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

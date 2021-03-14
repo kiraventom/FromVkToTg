@@ -28,12 +28,14 @@ namespace UI
 			if (isTokenSaved)
 			{
 				authorizedUser = Authorize(token);
+				Console.WriteLine("Найден сохранённый токен");
 			}
 			else
 			{
 				var (login, password) = InputLoginPassword();
 				authorizedUser = Authorize(login, password);
 				TokenHandler.Set(Api.Token, true);
+				Console.WriteLine("Токен сохранён");
 			}
 
 			var groupGetParams = new GroupsGetParams()
@@ -49,7 +51,9 @@ namespace UI
 			{
 				Group group = groups[i];
 				Console.WriteLine($"{i + 1}. {group.Name}");
-			}	
+			}
+
+			Console.ReadLine();	
 		}
 
 		static User Authorize(string login, string password)

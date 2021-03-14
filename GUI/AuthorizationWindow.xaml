@@ -1,4 +1,4 @@
-﻿<Window x:Class="GUI.MainWindow"
+﻿<Window x:Class="GUI.AuthorizationWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -39,6 +39,6 @@
         <TextBox x:Name="LoginTB" Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="1"/>
         <TextBlock Text="Пароль" Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="3"/>
         <TextBox x:Name="PasswordTB" Grid.ColumnSpan="2" Grid.Column="1" Grid.Row="3"/>
-        <Button Grid.Column="1" Grid.Row="5"/>
+        <Button x:Name="AuthorizeBt" Grid.Column="1" Grid.Row="5"/>
     </Grid>
 </Window>
