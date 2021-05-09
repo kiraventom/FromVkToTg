@@ -9,4 +9,8 @@
     <PackageReference Include="VkNet" Version="1.60.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Authorization\Authorization.csproj" />
+  </ItemGroup>
+
 </Project>

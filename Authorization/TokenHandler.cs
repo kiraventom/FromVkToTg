@@ -3,7 +3,7 @@ using System.IO;
 
 namespace Authorization
 {
-    internal static class TokenHandler
+    public static class TokenHandler
 	{
 		static TokenHandler()
 		{
@@ -14,7 +14,7 @@ namespace Authorization
 			Load();
 		}
 
-		private static string _path = null;
+		private static readonly string _path = null;
 		private static string _token = null;
 
 		public static bool TryGet(out string token)

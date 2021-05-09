@@ -1,103 +1,63 @@
 ﻿using System;
+using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Net.WebSockets;
 using VkNet;
 using VkNet.Enums.Filters;
 using VkNet.Exception;
-using VkNet.Model;
-using VkNet.Model.RequestParams;
 using System.Reflection;
+using Authorization;
+using AuthorizationResult = Authorization.AuthorizationResult;
 
 namespace UI
 {
 	class Program
 	{
-		static Program()
-		{
-			Api = new VkApi();
-		}
-
 		private const int AppId = 7289220;
-		private static VkApi Api { get; }
 
 		static void Main(string[] args)
 		{
-			User authorizedUser;
-			bool isTokenSaved = TokenHandler.TryGet(out string token);
-			if (isTokenSaved)
+			var result = Authorizer.Authorize(); // try authorize via token
+			checkAuthorizationResult:
+			switch (result)
 			{
-				authorizedUser = Authorize(token);
-				Console.WriteLine("Найден сохранённый токен");
-			}
-			else
-			{
-				var (login, password) = InputLoginPassword();
-				authorizedUser = Authorize(login, password);
-				TokenHandler.Set(Api.Token, true);
-				Console.WriteLine("Токен сохранён");
-			}
+				case AuthorizationResult.FailedAuth:
+					Console.WriteLine("Ошибка авторизации! Некорректные логин/пароль или истёкший токен");
+					goto case AuthorizationResult.TokenNotFound;
 
-			var groupGetParams = new GroupsGetParams()
-			{
-				UserId = authorizedUser.Id,
-				Count = 1000,
-				Extended = true
-			};
+				case AuthorizationResult.TokenNotFound:
+					var (login, password) = InputLoginPassword();
+					result = Authorizer.Authorize(login, password, InputTwoFactorCode);
+					goto checkAuthorizationResult;
 
-			var groups = Api.Groups.Get(groupGetParams);
-			Console.WriteLine($"Список сообществ {authorizedUser.FirstNameAcc} {authorizedUser.LastNameAcc}");
-			for (int i = 0; i < groups.Count; i++)
-			{
-				Group group = groups[i];
-				Console.WriteLine($"{i + 1}. {group.Name}");
+				case AuthorizationResult.ConnectionError:
+					Console.WriteLine("Ошибка подключения к ВК! Проверьте подключение к интернету");
+					return;
+
+				case AuthorizationResult.OK:
+					Console.WriteLine($"Успешный вход под именем {Authorizer.AuthorizedUser.FirstName} {Authorizer.AuthorizedUser.LastName}");
+					break;
+
+				default:
+					throw new NotImplementedException($"Unknown authorization result \"{result}\"");
 			}
 
-			Console.ReadLine();	
-		}
+			var api = Authorizer.Api;
+			var user = Authorizer.AuthorizedUser;
 
-		static User Authorize(string login, string password)
-		{
-			try
+			var pickedGroups = GroupsPicker.GetPickedGroups();
+			if (pickedGroups is null)
 			{
-				var authParams = new ApiAuthParams()
-				{
-					ApplicationId = AppId,
-					Login = login,
-					Password = password,
-					Settings = Settings.Groups | Settings.Offline,
-					TwoFactorAuthorization = InputTwoFactorCode
-				};
-
-				Api.Authorize(authParams);
-			}
-			catch (VkAuthorizationException e)
-			{
-				Console.WriteLine(e.Message);
-				return null;
+				Console.WriteLine("Вы не подписаны ни на одну группу!");
+				return;
 			}
 
-			return Api.Users.Get(Array.Empty<long>()).First();
-		}
+			pickedGroups.ToList().ForEach(x => Console.WriteLine(x.Name));
 
-		static User Authorize(string token)
-		{
-			try
-			{
-				var authParams = new ApiAuthParams()
-				{
-					AccessToken = token
-				};
-
-				Api.Authorize(authParams);
-			}
-			catch (VkAuthorizationException e)
-			{
-				Console.WriteLine(e.Message);
-				return null;
-			}
-
-			return Api.Users.Get(Array.Empty<long>()).First();
+			Console.ReadLine();
 		}
 
 		static (string, string) InputLoginPassword()
@@ -138,10 +98,9 @@ namespace UI
 			return (login, passwordSB.ToString());
 		}
 
-		static string InputTwoFactorCode()
+		private static string InputTwoFactorCode()
 		{
 			string code = string.Empty;
-
 			while (string.IsNullOrWhiteSpace(code) || code.Any(c => !char.IsDigit(c)))
 			{
 				Console.WriteLine("Введите код двухфакторной авторизации:");
@@ -149,60 +108,6 @@ namespace UI
 			}
 
 			return code;
-		}
-	}
-	
-	static class TokenHandler
-	{
-		static TokenHandler()
-		{
-			string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-			string dirPath = Path.Combine(appDataPath, "FromVkToTg");
-			Directory.CreateDirectory(dirPath);
-			_path = Path.Combine(dirPath, "token");
-			Load();
-		}
-
-		private static string _path = null;
-		private static string _token = null;
-
-		public static bool TryGet(out string token)
-		{
-			token = _token;
-			return _token is not null;
-		}
-
-		public static void Set(string token, bool autoSave = false)
-		{
-			_token = token;
-			
-			if (autoSave)
-			{
-				Save();
-			}
-		}
-
-		private static void Load()
-		{
-			if (!File.Exists(_path))
-			{
-				var sw = File.CreateText(_path);
-				sw.Close();
-			}
-
-			var content = File.ReadAllText(_path);
-			if (string.IsNullOrWhiteSpace(content))
-			{
-				_token = null;
-				return;
-			}
-
-			_token = content;
-		}
-
-		public static void Save()
-		{
-			File.WriteAllText(_path, _token);
 		}
 	}
 }

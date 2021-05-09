@@ -11,7 +11,8 @@ namespace Authorization
 	{
 		OK, // Авторизация прошла успешно
 		TokenNotFound, // Не найден сохранённый токен
-		Error // Неверный логин/пароль, устаревший токен, ошибка подключения, т.п. 
+		FailedAuth, // Неверный логин/пароль, устаревший токен
+		ConnectionError // ошибка подключения
 	}
 
     public static class Authorizer
@@ -24,7 +25,7 @@ namespace Authorization
 		public static bool IsAuthorized => AuthorizedUser is not null;
 		public static User AuthorizedUser { get; private set; }
 
-		private static VkApi Api { get; set; }
+		public static VkApi Api { get; }
 		private const int AppId = 7289220;
 
 		/// <summary>
@@ -32,7 +33,7 @@ namespace Authorization
 		/// <returns>
 		/// <list type="bullet">
 		/// <item>
-		/// <description>Возвращает <see cref="AuthorizationResult.Error"/>, если ВК отклонил логин и пароль или произошла ошибка подключения.</description>
+		/// <description>Возвращает <see cref="AuthorizationResult.FailedAuth"/>, если ВК отклонил логин и пароль или произошла ошибка подключения.</description>
 		/// </item>
 		/// <item>
 		/// <description>Возвращает <see cref="AuthorizationResult.OK"/>, если авторизация прошла успешно.</description>
@@ -40,7 +41,7 @@ namespace Authorization
 		/// </list>
 		/// </returns>
 		/// </summary>
-		public static AuthorizationResult Authorize(string login, string password)
+		public static AuthorizationResult Authorize(string login, string password, Func<string> twoFactorFunc)
 		{
 			try
 			{
@@ -50,17 +51,22 @@ namespace Authorization
 					Login = login,
 					Password = password,
 					Settings = Settings.Groups | Settings.Offline,
-					TwoFactorAuthorization = InputTwoFactorCode
+					TwoFactorAuthorization = twoFactorFunc
 				};
 
 				Api.Authorize(authParams);
 			}
 			catch (VkAuthorizationException)
 			{
-				return AuthorizationResult.Error;
+				return AuthorizationResult.FailedAuth;
+			}
+			catch (System.Net.Http.HttpRequestException)
+			{
+				return AuthorizationResult.ConnectionError;
 			}
 
 			AuthorizedUser = Api.Users.Get(Array.Empty<long>()).First();
+			TokenHandler.Set(Api.Token, true);
 			return AuthorizationResult.OK;
 		}
 
@@ -72,7 +78,7 @@ namespace Authorization
 		/// <description>Возвращает <see cref="AuthorizationResult.TokenNotFound"/>, если не найден сохранённый токен.</description>
 		/// </item>
 		/// <item>
-		/// <description>Возвращает <see cref="AuthorizationResult.Error"/>, если токен устарел или произошла ошибка подключения к ВК.</description>
+		/// <description>Возвращает <see cref="AuthorizationResult.FailedAuth"/>, если токен устарел или произошла ошибка подключения к ВК.</description>
 		/// </item>
 		/// <item>
 		/// <description>Возвращает <see cref="AuthorizationResult.OK"/>, если авторизация прошла успешно.</description>
@@ -99,23 +105,16 @@ namespace Authorization
 			}
 			catch (VkAuthorizationException)
 			{
-				return AuthorizationResult.Error;
+				TokenHandler.Set(null, true);
+				return AuthorizationResult.FailedAuth;
+			}
+			catch (System.Net.Http.HttpRequestException)
+			{
+				return AuthorizationResult.ConnectionError;
 			}
 
 			AuthorizedUser = Api.Users.Get(Array.Empty<long>()).First();
 			return AuthorizationResult.OK;
-		}
-
-		private static string InputTwoFactorCode()
-		{
-			string code = string.Empty;
-			while (string.IsNullOrWhiteSpace(code) || code.Any(c => !char.IsDigit(c)))
-			{
-				Console.WriteLine("Введите код двухфакторной авторизации:");
-				code = Console.ReadLine();
-			}
-
-			return code;
 		}
 	}
 }
