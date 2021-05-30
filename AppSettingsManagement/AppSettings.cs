@@ -26,7 +26,7 @@ namespace AppSettingsManagement
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             string dirPath = Path.Combine(appDataPath, "FromVkToTg");
             Directory.CreateDirectory(dirPath);
-            _appSettingsPath = Path.Combine(dirPath, "appSettings.json");
+            _appSettingsPath = Path.Combine(dirPath, "settings.json");
             if (File.Exists(_appSettingsPath))
                 return;
 
