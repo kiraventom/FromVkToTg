@@ -1,217 +1,244 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using Authorization;
+using AppSettingsManagement;
 using VkNet.Model;
 using VkNet.Model.RequestParams;
 using VkNet.Utils;
 
 namespace UI
 {
-	static class GroupsPicker
-	{
-		/// <summary>
-		/// Выбор групп для отслеживания.
-		/// <returns>
-		/// <list type="bullet">
-		/// <item>
-		/// <description>Возвращает <see langword="null"/> если пользователь не подписан ни на одну группу.</description>
-		/// </item>
-		/// </list>
-		/// Иначе возвращает список выбранных групп.
-		/// </returns>
-		/// </summary>
-		public static IEnumerable<Group> GetPickedGroups()
-		{
-			Console.CursorVisible = false;
+    internal static class GroupsPicker
+    {
+        private const int groupsOnPage = 20;
 
-			List<Group> selectedGroups = new();
-			int prevPageIdx = -1; // to force redraw on start
-			int pageIdx = 0;
-			int prevLineIdx = 0;
-			int lineIdx = 0;
-			bool lineChanged = false;
-			
-			var groups = GetGroups(0);
-			ulong totalCount = groups.TotalCount; 
-			if (totalCount == 0)
-				return null;
+        /// <summary>
+        /// Выбор групп для отслеживания.
+        /// <returns>
+        /// <list type="bullet">
+        /// <item>
+        /// <description>Возвращает <see langword="null"/>, если пользователь не подписан ни на одну группу</description>
+        /// </item>
+        /// </list>
+        /// Иначе возвращает список выбранных групп.
+        /// </returns>
+        /// </summary>
+        // TODO: Split megamethod to load, pick and save groups separately
+        public static void PickAndSaveGroups() 
+        {
+            Console.CursorVisible = false;
+            
+            // load saved groups (maybe zero)
+            var groupsIds = AppSettingsManager.Load().Groups;
+            var savedGroups = groupsIds.Any() ? Authorizer.Api.Groups.GetById(groupsIds, null, null) : Enumerable.Empty<Group>();
+            
+            List<Group> selectedGroups = new(savedGroups ?? Enumerable.Empty<Group>());
+            int prevPageIdx = -1; // to force redraw on start
+            int pageIdx = 0;
+            int prevLineIdx = 0;
+            int lineIdx = 0;
+            bool lineChanged = false;
 
-			int totalPagesCount = Convert.ToInt32(Math.Ceiling((double)totalCount / groupsOnPage));
+            var groups = GetGroups(0);
+            ulong totalCount = groups.TotalCount;
+            if (totalCount == 0)
+                return;
 
-			var group = groups[0];
+            int totalPagesCount = Convert.ToInt32(Math.Ceiling((double) totalCount / groupsOnPage));
 
-			while (true)
-			{
-				if (prevPageIdx != pageIdx)
-				{
-					RedrawPage(groups, pageIdx, lineIdx, selectedGroups, totalPagesCount);
-					prevPageIdx = pageIdx;
-				}
-				else
-				if (prevLineIdx != lineIdx || lineChanged)
-				{
-					if (prevLineIdx != lineIdx)
-						RedrawLine(prevLineIdx, groups[prevLineIdx], pageIdx, lineIdx, selectedGroups);
+            var group = groups[0];
 
-					RedrawLine(lineIdx, group, pageIdx,lineIdx, selectedGroups);
-					prevLineIdx = lineIdx;
-					lineChanged = false;
-				}
+            while (true)
+            {
+                if (prevPageIdx != pageIdx)
+                {
+                    RedrawPage(groups, pageIdx, lineIdx, selectedGroups, totalPagesCount);
+                    prevPageIdx = pageIdx;
+                }
+                else if (prevLineIdx != lineIdx || lineChanged)
+                {
+                    if (prevLineIdx != lineIdx)
+                        RedrawLine(prevLineIdx, groups[prevLineIdx], pageIdx, lineIdx, selectedGroups);
 
-				var action = ReadInput();
-				switch (action)
-				{
-					case Action.Up:
-						prevLineIdx = lineIdx;
-						lineIdx = lineIdx != 0 ? lineIdx - 1 : groups.Count - 1;
-						if (prevLineIdx == lineIdx)
-							continue;
+                    RedrawLine(lineIdx, group, pageIdx, lineIdx, selectedGroups);
+                    prevLineIdx = lineIdx;
+                    lineChanged = false;
+                }
 
-						group = groups[lineIdx];
-						break;
+                var action = ReadInput();
+                switch (action)
+                {
+                    case Action.Up:
+                        prevLineIdx = lineIdx;
+                        lineIdx = lineIdx != 0 ? lineIdx - 1 : groups.Count - 1;
+                        if (prevLineIdx == lineIdx)
+                            continue;
 
-					case Action.Down:
-						prevLineIdx = lineIdx;
-						lineIdx = lineIdx != groups.Count - 1 ? lineIdx + 1 : 0;
-						if (prevLineIdx == lineIdx)
-							continue;
+                        group = groups[lineIdx];
+                        break;
 
-						group = groups[lineIdx];
-						break;
+                    case Action.Down:
+                        prevLineIdx = lineIdx;
+                        lineIdx = lineIdx != groups.Count - 1 ? lineIdx + 1 : 0;
+                        if (prevLineIdx == lineIdx)
+                            continue;
 
-					case Action.Previous:
-						prevPageIdx = pageIdx;
-						pageIdx = pageIdx != 0 ? pageIdx - 1 : totalPagesCount - 1;
-						if (prevPageIdx == pageIdx)
-							continue;
+                        group = groups[lineIdx];
+                        break;
 
-						prevLineIdx = 0;
-						lineIdx = 0;
-						groups = GetGroups(pageIdx);
-						group = groups[lineIdx];
-						break;
+                    case Action.Previous:
+                        prevPageIdx = pageIdx;
+                        pageIdx = pageIdx != 0 ? pageIdx - 1 : totalPagesCount - 1;
+                        if (prevPageIdx == pageIdx)
+                            continue;
 
-					case Action.Next:
-						prevPageIdx = pageIdx;
-						pageIdx= pageIdx != totalPagesCount - 1 ? pageIdx + 1 : 0;
-						if (prevPageIdx == pageIdx)
-							continue;
-						
-						prevLineIdx = 0;
-						lineIdx = 0;
-						groups = GetGroups(pageIdx);
-						group = groups[lineIdx];
-						break;
+                        prevLineIdx = 0;
+                        lineIdx = 0;
+                        groups = GetGroups(pageIdx);
+                        group = groups[lineIdx];
+                        break;
 
-					case Action.Select:
-						var already = selectedGroups.FirstOrDefault(g => g.Id == group.Id);
-						if (already is not null)
-						{
-							selectedGroups.Remove(already);
-						}
-						else
-						{
-							selectedGroups.Add(group);
-						}
+                    case Action.Next:
+                        prevPageIdx = pageIdx;
+                        pageIdx = pageIdx != totalPagesCount - 1 ? pageIdx + 1 : 0;
+                        if (prevPageIdx == pageIdx)
+                            continue;
 
-						lineChanged = true;
-						break;
+                        prevLineIdx = 0;
+                        lineIdx = 0;
+                        groups = GetGroups(pageIdx);
+                        group = groups[lineIdx];
+                        break;
 
-					case Action.Confirm:
-						Console.Clear();
-						Console.CursorVisible = true;
-						return selectedGroups.AsEnumerable();
+                    case Action.Select:
+                        var already = selectedGroups.FirstOrDefault(g => g.Id == group.Id);
+                        if (already is not null)
+                        {
+                            selectedGroups.Remove(already);
+                        }
+                        else
+                        {
+                            selectedGroups.Add(group);
+                        }
 
-					case Action.None:
-						break;
+                        lineChanged = true;
+                        break;
 
-					default:
-						throw new NotImplementedException($"Unknown action \"{action}\"");
-				}
-			}
-		}
+                    case Action.Confirm:
+                        Console.Clear();
+                        Console.CursorVisible = true;
+                        SaveGroups(selectedGroups);
+                        // return selectedGroups.AsEnumerable();
+                        return;
 
-		private const int groupsOnPage = 20;
+                    case Action.None:
+                        break;
 
-		private static void RedrawPage(VkCollection<Group> groups, int pageIdx, int groupIdx, ICollection<Group> selectedGroups, int totalPagesCount)
-		{
-			var user = Authorizer.AuthorizedUser;
-			Console.Clear();
-			Console.WriteLine($"Список сообществ {user.FirstNameAcc} {user.LastNameAcc}");
+                    default:
+                        throw new NotImplementedException($"Unknown action \"{action}\"");
+                }
+            }
+        }
 
-			for (int i = 0; i < groups.Count; i++)
-			{
-				var group = groups[i];
-				RedrawLine(i, group,  pageIdx,groupIdx, selectedGroups);
-			}
+        private static void SaveGroups(IEnumerable<Group> groupsToSave)
+        {
+            var current = AppSettingsManager.Load();
+            AppSettingsManager.Save(current with { Groups = groupsToSave.Select(g => g.Id.ToString()) });
+        }
 
-			if (pageIdx > 0)
-			{
-				Console.Write("<< ");
-			}
+        private static void RedrawPage(VkCollection<Group> groups, int pageIdx, int groupIdx,
+            ICollection<Group> selectedGroups, int totalPagesCount)
+        {
+            var user = Authorizer.AuthorizedUser;
+            Console.Clear();
+            Console.WriteLine($"Список сообществ {user.FirstNameAcc} {user.LastNameAcc}");
 
-			Console.Write($"Страница {pageIdx + 1} из {totalPagesCount}");
-			if (pageIdx != totalPagesCount - 1)
-			{
-				Console.Write(" >>");
-			}
-		}
+            for (int i = 0; i < groups.Count; i++)
+            {
+                var group = groups[i];
+                RedrawLine(i, group, pageIdx, groupIdx, selectedGroups);
+            }
 
-		private static void RedrawLine(int i, Group group, int selectedPageIdx, int selectedGroupIdx, ICollection<Group> selectedGroups)
-		{
-			Console.SetCursorPosition(0, i + 1); // + 1 because of header
+            if (pageIdx > 0)
+            {
+                Console.Write("<< ");
+            }
 
-			var backColor = Console.BackgroundColor;
-			var foreColor = Console.ForegroundColor;
+            Console.Write($"Страница {pageIdx + 1} из {totalPagesCount}");
+            if (pageIdx != totalPagesCount - 1)
+            {
+                Console.Write(" >>");
+            }
+        }
 
-			if (i == selectedGroupIdx)
-			{
-				Console.BackgroundColor = foreColor;
-				Console.ForegroundColor = backColor;
-			}
-			
-			if (selectedGroups.Any(g => g.Id == group.Id))
-				Console.ForegroundColor = ConsoleColor.DarkGreen;
+        private static void RedrawLine(int i, Group group, int selectedPageIdx, int selectedGroupIdx,
+            ICollection<Group> selectedGroups)
+        {
+            Console.SetCursorPosition(0, i + 1); // + 1 because of header
 
-			Console.WriteLine($"{selectedPageIdx * groupsOnPage +  i + 1}. {group.Name}");
+            var backColor = Console.BackgroundColor;
+            var foreColor = Console.ForegroundColor;
 
-			if (Console.BackgroundColor != backColor)
-				Console.BackgroundColor = backColor;
+            if (i == selectedGroupIdx)
+            {
+                Console.BackgroundColor = foreColor;
+                Console.ForegroundColor = backColor;
+            }
 
-			if (Console.ForegroundColor != foreColor)
-				Console.ForegroundColor = foreColor;
-		}
+            if (selectedGroups.Any(g => g.Id == group.Id))
+                Console.ForegroundColor = ConsoleColor.DarkGreen;
 
-		private enum Action { Up, Down, Next, Previous, Select, Confirm, None }
+            Console.WriteLine($"{selectedPageIdx * groupsOnPage + i + 1}. {group.Name}");
 
-		private static Action ReadInput()
-		{
-			var cki = Console.ReadKey(true);
-			return cki.Key switch
-			{
-				ConsoleKey.UpArrow => Action.Up,
-				ConsoleKey.DownArrow => Action.Down,
-				ConsoleKey.LeftArrow => Action.Previous,
-				ConsoleKey.RightArrow => Action.Next,
-				ConsoleKey.Spacebar => Action.Select,
-				ConsoleKey.Enter => Action.Confirm,
-				_ => Action.None
-			};
-		}
+            if (Console.BackgroundColor != backColor)
+                Console.BackgroundColor = backColor;
 
-		private static VkCollection<Group> GetGroups(int page)
-		{
-			var groupGetParams = new GroupsGetParams()
-			{
-				UserId = Authorizer.AuthorizedUser.Id,
-				Offset = groupsOnPage * page,
-				Count = groupsOnPage,
-				Extended = true
-			};
+            if (Console.ForegroundColor != foreColor)
+                Console.ForegroundColor = foreColor;
+        }
 
-			var groups = Authorizer.Api.Groups.Get(groupGetParams);
-			return groups;
-		}
-	}
+        private enum Action
+        {
+            Up,
+            Down,
+            Next,
+            Previous,
+            Select,
+            Confirm,
+            None
+        }
+
+        private static Action ReadInput()
+        {
+            var cki = Console.ReadKey(true);
+            return cki.Key switch
+            {
+                ConsoleKey.UpArrow => Action.Up,
+                ConsoleKey.DownArrow => Action.Down,
+                ConsoleKey.LeftArrow => Action.Previous,
+                ConsoleKey.RightArrow => Action.Next,
+                ConsoleKey.Spacebar => Action.Select,
+                ConsoleKey.Enter => Action.Confirm,
+                _ => Action.None
+            };
+        }
+
+        private static VkCollection<Group> GetGroups(int page)
+        {
+            var groupGetParams = new GroupsGetParams()
+            {
+                UserId = Authorizer.AuthorizedUser.Id,
+                Offset = groupsOnPage * page,
+                Count = groupsOnPage,
+                Extended = true
+            };
+
+            var groups = Authorizer.Api.Groups.Get(groupGetParams);
+            return groups;
+        }
+    }
 }

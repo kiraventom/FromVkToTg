@@ -5,7 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VkNet" Version="1.60.0" />
+    <PackageReference Include="VkNet" Version="1.63.0-621" />
+    <PackageReference Include="VkNet.AudioBypassService" Version="1.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AppSettingsManagement\AppSettingsManagement.csproj" />
   </ItemGroup>
 
 </Project>

@@ -6,11 +6,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VkNet" Version="1.60.0" />
+    <PackageReference Include="VkNet" Version="1.63.0-621" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Authorization\Authorization.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VkWatcher\VkWatcher.csproj" />
+  </ItemGroup>
+  
 </Project>

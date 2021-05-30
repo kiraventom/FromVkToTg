@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
 using VkNet;
+using VkNet.AudioBypassService.Exceptions;
 using VkNet.Enums.Filters;
 using VkNet.Exception;
 using VkNet.Model;
+using VkNet.AudioBypassService.Extensions;
 
 namespace Authorization
 {
@@ -19,7 +22,10 @@ namespace Authorization
 	{
 		static Authorizer()
 		{
-			Api = new VkApi();
+			// to avoid authorization error
+			var services = new ServiceCollection();
+			services.AddAudioBypass();
+			Api = new VkApi(services);
 		}
 
 		public static bool IsAuthorized => AuthorizedUser is not null;
@@ -60,13 +66,17 @@ namespace Authorization
 			{
 				return AuthorizationResult.FailedAuth;
 			}
+			catch (VkAuthException) // from audiobypass
+			{
+				return AuthorizationResult.FailedAuth;
+			}
 			catch (System.Net.Http.HttpRequestException)
 			{
 				return AuthorizationResult.ConnectionError;
 			}
 
 			AuthorizedUser = Api.Users.Get(Array.Empty<long>()).First();
-			TokenHandler.Set(Api.Token, true);
+			TokenHandler.Set(Api.Token);
 			return AuthorizationResult.OK;
 		}
 
@@ -105,7 +115,7 @@ namespace Authorization
 			}
 			catch (VkAuthorizationException)
 			{
-				TokenHandler.Set(null, true);
+				TokenHandler.Clear();
 				return AuthorizationResult.FailedAuth;
 			}
 			catch (System.Net.Http.HttpRequestException)

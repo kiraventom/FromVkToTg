@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
@@ -9,105 +12,176 @@ using VkNet;
 using VkNet.Enums.Filters;
 using VkNet.Exception;
 using System.Reflection;
+using AppSettingsManagement;
 using Authorization;
+using VkNet.Model;
+using VkWatcher;
 using AuthorizationResult = Authorization.AuthorizationResult;
 
 namespace UI
 {
-	class Program
-	{
-		private const int AppId = 7289220;
+    internal static class Program
+    {
+        private const int AppId = 7289220;
 
-		static void Main(string[] args)
-		{
-			var result = Authorizer.Authorize(); // try authorize via token
-			checkAuthorizationResult:
-			switch (result)
-			{
-				case AuthorizationResult.FailedAuth:
-					Console.WriteLine("Ошибка авторизации! Некорректные логин/пароль или истёкший токен");
-					goto case AuthorizationResult.TokenNotFound;
+        private static void Main(string[] args)
+        {
+            start:
+            Authorize();
 
-				case AuthorizationResult.TokenNotFound:
-					var (login, password) = InputLoginPassword();
-					result = Authorizer.Authorize(login, password, InputTwoFactorCode);
-					goto checkAuthorizationResult;
+            IEnumerable<Group> savedGroups;
+            void LoadGroupsFromSettings()
+            {
+                // load saved groups (maybe zero)
+                var groupsIds = AppSettingsManager.Load().Groups;
+                savedGroups = groupsIds.Any() ? Authorizer.Api.Groups.GetById(groupsIds, null, null) : Enumerable.Empty<Group>();
+            }
 
-				case AuthorizationResult.ConnectionError:
-					Console.WriteLine("Ошибка подключения к ВК! Проверьте подключение к интернету");
-					return;
+            LoadGroupsFromSettings();
+            while (true)
+            {
+                Console.WriteLine("Главное меню\n");
+                Console.WriteLine("1 Начать отслеживание");
+                Console.WriteLine($"2 Выбрать группы для отслеживания ({savedGroups.Count()} выбрано)");
+                Console.WriteLine("3 Выйти из аккаунта");
+                Console.WriteLine("4 Закрыть программу");
+             
+                var keyInfo = Console.ReadKey(true);
+                Console.Clear();
+                
+                switch (keyInfo.KeyChar)
+                {
+                    case '1':
+                        if (!savedGroups.Any())
+                        {
+                            Console.WriteLine("Выберите хотя бы одну группу!");
+                            break;
+                        }
+                        
+                        goto watching;
 
-				case AuthorizationResult.OK:
-					Console.WriteLine($"Успешный вход под именем {Authorizer.AuthorizedUser.FirstName} {Authorizer.AuthorizedUser.LastName}");
-					break;
+                    case '2':
+                        GroupsPicker.PickAndSaveGroups();
+                        LoadGroupsFromSettings();
+                        break;
 
-				default:
-					throw new NotImplementedException($"Unknown authorization result \"{result}\"");
-			}
+                    case '3':
+                        bool shouldLogOut = ShouldLogOut();
+                        if (shouldLogOut)
+                            goto start;
+                        break;
 
-			var api = Authorizer.Api;
-			var user = Authorizer.AuthorizedUser;
+                    case '4':
+                        return;
+                }
+            }
 
-			var pickedGroups = GroupsPicker.GetPickedGroups();
-			if (pickedGroups is null)
-			{
-				Console.WriteLine("Вы не подписаны ни на одну группу!");
-				return;
-			}
+            watching:
 
-			pickedGroups.ToList().ForEach(x => Console.WriteLine(x.Name));
+            Console.WriteLine("Выбранные для отслеживания группы:");
+            savedGroups.ToList().ForEach(x => Console.WriteLine(x.Name));
+            
+            // var watcher = new Watcher(pickedGroups.ToList());
 
-			Console.ReadLine();
-		}
+            Console.ReadLine();
+        }
 
-		static (string, string) InputLoginPassword()
-		{
-			string login = string.Empty;
-			StringBuilder passwordSB = new(string.Empty);
+        static void Authorize()
+        {
+            var result = Authorizer.Authorize(); // try authorize via token
+            checkAuthorizationResult:
+            switch (result)
+            {
+                case AuthorizationResult.FailedAuth:
+                    Console.WriteLine("Ошибка авторизации! Некорректные логин/пароль или истёкший токен");
+                    goto case AuthorizationResult.TokenNotFound;
 
-			while (string.IsNullOrWhiteSpace(login))
-			{
-				Console.WriteLine("Введите логин:");
-				login = Console.ReadLine();
-			}
+                case AuthorizationResult.TokenNotFound:
+                    var (login, password) = InputLoginPassword();
+                    result = Authorizer.Authorize(login, password, InputTwoFactorCode);
+                    goto checkAuthorizationResult;
 
-			while (string.IsNullOrWhiteSpace(passwordSB.ToString()))
-			{
-				Console.WriteLine("Введите пароль:");
-				while (true)
-				{
-					ConsoleKeyInfo i = Console.ReadKey(true);
-					if (i.Key == ConsoleKey.Enter)
-					{
-						Console.Write('\n');
-						break;
-					}
-					else if (i.Key == ConsoleKey.Backspace)
-					{
-						passwordSB = passwordSB.Remove(1, passwordSB.Length - 1);
-						Console.Write("\b \b");
-					}
-					else
-					{
-						passwordSB.Append(i.KeyChar);
-						Console.Write("*");
-					}
-				}
-			}
+                case AuthorizationResult.ConnectionError:
+                    Console.WriteLine("Ошибка подключения к ВК! Проверьте подключение к интернету");
+                    return;
 
-			return (login, passwordSB.ToString());
-		}
+                case AuthorizationResult.OK:
+                    Console.WriteLine(
+                        $"Успешный вход под именем {Authorizer.AuthorizedUser.FirstName} {Authorizer.AuthorizedUser.LastName}");
+                    break;
 
-		private static string InputTwoFactorCode()
-		{
-			string code = string.Empty;
-			while (string.IsNullOrWhiteSpace(code) || code.Any(c => !char.IsDigit(c)))
-			{
-				Console.WriteLine("Введите код двухфакторной авторизации:");
-				code = Console.ReadLine();
-			}
+                default:
+                    throw new NotImplementedException($"Unknown authorization result \"{result}\"");
+            }
+        }
 
-			return code;
-		}
-	}
+        static bool ShouldLogOut()
+        {
+            Console.WriteLine("Вы уверены? Ваши настройки будут удалены! (Y/N)");
+            input:
+            var keyInfo = Console.ReadKey(true);
+            switch (keyInfo.Key)
+            {
+                case ConsoleKey.Y:
+                    AppSettingsManager.Reset();
+                    return true;
+
+                case ConsoleKey.N:
+                    return false;
+
+                default:
+                    goto input;
+            }
+        }
+
+        static (string, string) InputLoginPassword()
+        {
+            string login = string.Empty;
+            StringBuilder passwordSB = new(string.Empty);
+
+            while (string.IsNullOrWhiteSpace(login))
+            {
+                Console.WriteLine("Введите логин:");
+                login = Console.ReadLine();
+            }
+
+            while (string.IsNullOrWhiteSpace(passwordSB.ToString()))
+            {
+                Console.WriteLine("Введите пароль:");
+                while (true)
+                {
+                    ConsoleKeyInfo i = Console.ReadKey(true);
+                    if (i.Key == ConsoleKey.Enter)
+                    {
+                        Console.Write('\n');
+                        break;
+                    }
+                    else if (i.Key == ConsoleKey.Backspace)
+                    {
+                        passwordSB = passwordSB.Remove(1, passwordSB.Length - 1);
+                        Console.Write("\b \b");
+                    }
+                    else
+                    {
+                        passwordSB.Append(i.KeyChar);
+                        Console.Write("*");
+                    }
+                }
+            }
+
+            return (login, passwordSB.ToString());
+        }
+
+        private static string InputTwoFactorCode()
+        {
+            string code = string.Empty;
+            while (string.IsNullOrWhiteSpace(code) || code.Any(c => !char.IsDigit(c)))
+            {
+                Console.WriteLine("Введите код двухфакторной авторизации:");
+                code = Console.ReadLine();
+            }
+
+            return code;
+        }
+    }
 }

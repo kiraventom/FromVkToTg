@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+    
+    <ItemGroup>
+        <PackageReference Include="VkNet" Version="1.63.0-621" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Authorization\Authorization.csproj" />
+    </ItemGroup>
+
+</Project>
