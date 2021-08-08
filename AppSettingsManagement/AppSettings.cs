@@ -19,12 +19,12 @@ namespace AppSettingsManagement
         public IEnumerable<string> Groups { get; init; }
     }
 
-    public static class AppSettingsManager
+    public class AppSettingsManager
     {
-        static AppSettingsManager()
+        public AppSettingsManager(string appName)
         {
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string dirPath = Path.Combine(appDataPath, "FromVkToTg");
+            string dirPath = Path.Combine(appDataPath, appName);
             Directory.CreateDirectory(dirPath);
             _appSettingsPath = Path.Combine(dirPath, "settings.json");
             if (File.Exists(_appSettingsPath))
@@ -33,20 +33,20 @@ namespace AppSettingsManagement
             Reset();
         }
 
-        private static readonly string _appSettingsPath;
+        private readonly string _appSettingsPath;
 
-        public static AppSettings Load()
+        public AppSettings Load()
         {
             string json = File.ReadAllText(_appSettingsPath);
             return JsonSerializer.Deserialize<AppSettings>(json);
         }
 
-        public static void Save(AppSettings newAppSettings)
+        public void Save(AppSettings newAppSettings)
         {
             string json = JsonSerializer.Serialize(newAppSettings);
             File.WriteAllText(_appSettingsPath, json);
         }
 
-        public static void Reset() => Save(new AppSettings { Token = string.Empty, Groups = Enumerable.Empty<string>() });
+        public void Reset() => Save(new AppSettings { Token = string.Empty, Groups = Enumerable.Empty<string>() });
     }
 }

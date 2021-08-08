@@ -4,20 +4,27 @@ using AppSettingsManagement;
 
 namespace Authorization
 {
-    public static class TokenHandler // TODO: remove this and use AppSettings directly instead?
+    public class TokenHandler // TODO: remove this and use AppSettings directly instead?
     {
-        public static bool TryGet(out string token)
+        public TokenHandler(AppSettingsManager settingsManager)
         {
-            token = AppSettingsManager.Load().Token;
+            _settingsManager = settingsManager;
+        }
+
+        private readonly AppSettingsManager _settingsManager;
+        
+        public bool TryGet(out string token)
+        {
+            token = _settingsManager.Load().Token;
             return !string.IsNullOrWhiteSpace(token);
         }
 
-        public static void Clear() => Set(null);
-
-        public static void Set(string token)
+        public void Set(string token)
         {
-            var current = AppSettingsManager.Load();
-            AppSettingsManager.Save(current with { Token = token });
+            var current = _settingsManager.Load();
+            _settingsManager.Save(current with { Token = token });
         }
+
+        public void Clear() => Set(null);
     }
 }

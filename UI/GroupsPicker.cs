@@ -12,10 +12,18 @@ using VkNet.Utils;
 
 namespace UI
 {
-    internal static class GroupsPicker
+    internal class GroupsPicker
     {
+        public GroupsPicker(AppSettingsManager settingsManager, Authorizer authorizer)
+        {
+            _settingsManager = settingsManager;
+            _authorizer = authorizer;
+        }
+        
         private const int groupsOnPage = 20;
-
+        private readonly AppSettingsManager _settingsManager;
+        private readonly Authorizer _authorizer;
+        
         /// <summary>
         /// Выбор групп для отслеживания.
         /// <returns>
@@ -28,13 +36,13 @@ namespace UI
         /// </returns>
         /// </summary>
         // TODO: Split megamethod to load, pick and save groups separately
-        public static void PickAndSaveGroups() 
+        public void PickAndSaveGroups() 
         {
             Console.CursorVisible = false;
             
             // load saved groups (maybe zero)
-            var groupsIds = AppSettingsManager.Load().Groups;
-            var savedGroups = groupsIds.Any() ? Authorizer.Api.Groups.GetById(groupsIds, null, null) : Enumerable.Empty<Group>();
+            var groupsIds = _settingsManager.Load().Groups;
+            var savedGroups = groupsIds.Any() ? _authorizer.Api.Groups.GetById(groupsIds, null, null) : Enumerable.Empty<Group>();
             
             List<Group> selectedGroups = new(savedGroups ?? Enumerable.Empty<Group>());
             int prevPageIdx = -1; // to force redraw on start
@@ -144,16 +152,16 @@ namespace UI
             }
         }
 
-        private static void SaveGroups(IEnumerable<Group> groupsToSave)
+        private void SaveGroups(IEnumerable<Group> groupsToSave)
         {
-            var current = AppSettingsManager.Load();
-            AppSettingsManager.Save(current with { Groups = groupsToSave.Select(g => g.Id.ToString()) });
+            var current = _settingsManager.Load();
+            _settingsManager.Save(current with { Groups = groupsToSave.Select(g => g.Id.ToString()) });
         }
 
-        private static void RedrawPage(VkCollection<Group> groups, int pageIdx, int groupIdx,
+        private void RedrawPage(VkCollection<Group> groups, int pageIdx, int groupIdx,
             ICollection<Group> selectedGroups, int totalPagesCount)
         {
-            var user = Authorizer.AuthorizedUser;
+            var user = _authorizer.AuthorizedUser;
             Console.Clear();
             Console.WriteLine($"Список сообществ {user.FirstNameAcc} {user.LastNameAcc}");
 
@@ -175,7 +183,7 @@ namespace UI
             }
         }
 
-        private static void RedrawLine(int i, Group group, int selectedPageIdx, int selectedGroupIdx,
+        private void RedrawLine(int i, Group group, int selectedPageIdx, int selectedGroupIdx,
             ICollection<Group> selectedGroups)
         {
             Console.SetCursorPosition(0, i + 1); // + 1 because of header
@@ -212,7 +220,7 @@ namespace UI
             None
         }
 
-        private static Action ReadInput()
+        private Action ReadInput()
         {
             var cki = Console.ReadKey(true);
             return cki.Key switch
@@ -227,17 +235,17 @@ namespace UI
             };
         }
 
-        private static VkCollection<Group> GetGroups(int page)
+        private VkCollection<Group> GetGroups(int page)
         {
             var groupGetParams = new GroupsGetParams()
             {
-                UserId = Authorizer.AuthorizedUser.Id,
+                UserId = _authorizer.AuthorizedUser.Id,
                 Offset = groupsOnPage * page,
                 Count = groupsOnPage,
                 Extended = true
             };
 
-            var groups = Authorizer.Api.Groups.Get(groupGetParams);
+            var groups = _authorizer.Api.Groups.Get(groupGetParams);
             return groups;
         }
     }

@@ -22,7 +22,18 @@ namespace UI
 {
     internal static class Program
     {
+        static Program()
+        {
+            const string appName = "FromVkToTg";
+            _settingsManager = new AppSettingsManager(appName);
+            _authorizer = new Authorizer(_settingsManager);
+            _groupsPicker = new GroupsPicker(_settingsManager, _authorizer);
+        }
+        
         private const int AppId = 7289220;
+        private static readonly Authorizer _authorizer;
+        private static readonly AppSettingsManager _settingsManager;
+        private static readonly GroupsPicker _groupsPicker;
 
         private static void Main(string[] args)
         {
@@ -33,8 +44,8 @@ namespace UI
             void LoadGroupsFromSettings()
             {
                 // load saved groups (maybe zero)
-                var groupsIds = AppSettingsManager.Load().Groups;
-                savedGroups = groupsIds.Any() ? Authorizer.Api.Groups.GetById(groupsIds, null, null) : Enumerable.Empty<Group>();
+                var groupsIds = _settingsManager .Load().Groups;
+                savedGroups = groupsIds.Any() ? _authorizer.Api.Groups.GetById(groupsIds, null, null) : Enumerable.Empty<Group>();
             }
 
             LoadGroupsFromSettings();
@@ -61,7 +72,7 @@ namespace UI
                         goto watching;
 
                     case '2':
-                        GroupsPicker.PickAndSaveGroups();
+                        _groupsPicker.PickAndSaveGroups();
                         LoadGroupsFromSettings();
                         break;
 
@@ -88,7 +99,7 @@ namespace UI
 
         static void Authorize()
         {
-            var result = Authorizer.Authorize(); // try authorize via token
+            var result = _authorizer.Authorize(); // try authorize via token
             checkAuthorizationResult:
             switch (result)
             {
@@ -98,7 +109,7 @@ namespace UI
 
                 case AuthorizationResult.TokenNotFound:
                     var (login, password) = InputLoginPassword();
-                    result = Authorizer.Authorize(login, password, InputTwoFactorCode);
+                    result = _authorizer.Authorize(login, password, InputTwoFactorCode);
                     goto checkAuthorizationResult;
 
                 case AuthorizationResult.ConnectionError:
@@ -107,7 +118,7 @@ namespace UI
 
                 case AuthorizationResult.OK:
                     Console.WriteLine(
-                        $"Успешный вход под именем {Authorizer.AuthorizedUser.FirstName} {Authorizer.AuthorizedUser.LastName}");
+                        $"Успешный вход под именем {_authorizer.AuthorizedUser.FirstName} {_authorizer.AuthorizedUser.LastName}");
                     break;
 
                 default:
@@ -123,7 +134,7 @@ namespace UI
             switch (keyInfo.Key)
             {
                 case ConsoleKey.Y:
-                    AppSettingsManager.Reset();
+                    _settingsManager.Reset();
                     return true;
 
                 case ConsoleKey.N:
@@ -177,7 +188,7 @@ namespace UI
             string code = string.Empty;
             while (string.IsNullOrWhiteSpace(code) || code.Any(c => !char.IsDigit(c)))
             {
-                Console.WriteLine("Введите код двухфакторной авторизации:");
+                Console.WriteLine("Введите код из сообщения / 4 последние цифры номера, с которого поступил звонок сброс:");
                 code = Console.ReadLine();
             }
 
